@@ -1,13 +1,58 @@
-MainFile = "C:/Users/nick.tolimieri/Desktop/Petrale_Example"
+MainFile = getwd()
 StatsPrelim = paste0(paste0(MainFile,'/02_Stats_prelim'))
 dir.create(StatsPrelim)
 setwd(StatsPrelim)
 
+library(tidyverse)
+
 # load data ####
-roms = data.frame(read.table(paste0(main,'/01_ROMS_prelim/Data_ROMS.for.analysis.mean.csv'), header=TRUE, sep=','))
+roms = data.frame(read.table(paste0(MainFile,'/01_ROMS_prelim/Data_ROMS.for.analysis.mean.csv'), header=TRUE, sep=','))
 head(roms)
+
+
+###### plot ROMS variables showing break in 2010 to visually evaluate change in patterns
+
+# conver to long for gg plot
+
+roms_long = roms %>% pivot_longer(., cols=DDpre:CSTbjuv.b,
+                                  names_to = "roms_param",
+                                  values_to = "roms_data") 
+
+
+graphics.off()
+png( paste0(MainFile,'/Figures/Timeseries_roms.png'), units = 'in',res=300, width=6.5, height=8)
+
+ggplot(roms_long, aes(x=year, y = roms_data)) + 
+  geom_line() + geom_point()+
+  facet_wrap(facets='roms_param', ncol=3, scales = 'free_y')+
+  xlab("") + ylab("Value")+
+  theme_bw()
+  
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #### big table of correlations ####
-df2 = roms[roms$year %in% 1981:2010,]
+df2 = roms[roms$year %in% 1981:2022,]
 df3 = df2[,-1] # remove year
 df3 = df3[,order(colnames(df3))]
 cor1 = cor(df3)
