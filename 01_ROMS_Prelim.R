@@ -1,14 +1,18 @@
+rm(list=ls())
 library(tidyverse)
+
 MainFile = getwd()
+Data_loc = paste0(MainFile,'/00_Data/')
 ROMSPrelim = paste0(MainFile,'/01_ROMS_Prelim')
+Fig_loc = paste0(MainFile,'/Figures/')
 dir.create(ROMSPrelim)
-setwd(ROMSPrelim)
+# setwd(ROMSPrelim)
 
 # bring in data
 #1980-2010
-ROMS1 = data.frame(read.table(paste0(MainFile,'/00_Data/ROMS_vars_petrale.csv'),sep=',',header=TRUE))
+ROMS1 = data.frame(read.table(paste0(Data_loc,'/ROMS_vars_petrale.csv'),sep=',',header=TRUE))
 #2011-2022
-ROMS2 = data.frame(read.table(paste0(MainFile,'/00_Data/petrale_roms_variables_20221025.csv'),sep=',',header=TRUE))
+ROMS2 = data.frame(read.table(paste0(Data_loc,'/petrale_roms_variables_20221025.csv'),sep=',',header=TRUE))
 
 dim(ROMS1)
 dim(ROMS2)
@@ -31,14 +35,17 @@ Hyp_names = data.frame(array(
   "temp_200_500m_40_47N_250_500m" ,  "H11",
   "temp_0_50m_40_47N_50_150km",      "H15",
   "temp_0_150m_40_47N_80_120km",     "H19",
+  
   "mld_40_47N_250_500m",             "H5", 
-  "ualong_50_200m_40_47N_250_500m",  "H7",
+  
+  "ualong_50_200m_40_47N_250_500m",  "H6",
   "ualong_200_500m_40_47N_250_500m", "H10",
   "ualong_0_50m_40_47N_50_150km",    "H13",
   "ualong_0_150m_40_47N_80_120km",   "H17",
   "ualong_bottom_40_47N_50_150m",    "H20a",
   "ualong_bottom_40_47N_150_500m",   "H20b",
-  "ucross_50_200m_40_47N_250_500m",  "H6",
+  
+  "ucross_50_200m_40_47N_250_500m",  "H7",
   "ucross_200_500m_40_47N_250_500m", "H9",
   "ucross_0_50m_40_47N_50_150km"  ,  "H14",
   "ucross_0_150m_40_47N_80_120km",   "H18",
@@ -59,8 +66,9 @@ cnames$roms2_hyp[1:3] = cnames$roms2[1:3]
 # change colnames to hypothesis
 colnames(ROMS2) <- cnames$roms2_hyp
 # join
-ROMS = full_join(ROMS1,ROMS2)
-write.csv( ROMS, paste0(MainFile,"/00_Data/RAW_ROMS_Data_combined_1980-2022.csv"), 
+ROMS = full_join(ROMS1,ROMS2) 
+
+write.csv( ROMS, paste0(Data_loc,"/RAW_ROMS_Data_combined_1980-2022.csv"), 
            row.names = FALSE)
 
 ############ Begin processesing data ##########################################
@@ -144,21 +152,21 @@ for(i in 1:length(fun)){
      H21b = aggregate(H21b ~ y2, data=roms[roms$Month %in% c(4:10),], FUN=fun[i])        
      roms_2$H21b = H21b[match(roms_2$year, H21b$y2),2]
 
-     write.table(roms_2, paste('Data_ROMS_',fun[i],'.csv',sep=''), sep=',', col.names = TRUE, row.names = FALSE)
+     write.table(roms_2, paste0(Data_loc,'/Data_ROMS_',fun[i],'.csv'), sep=',', 
+                 col.names = TRUE, row.names = FALSE)
 
 } # end i ####
 #### analysis using means for tranport mech ####
-df = data.frame(read.table("Data_ROMS_mean.csv",header=TRUE, sep=','))
-temps = data.frame(read.table("Data_ROMS_sum.csv",header=TRUE, sep=','))
-
-# bring in summed degree days into main file ####
-# Replace temp means with degree days for some values.
-df$H2 = temps$H2
-df$H8 = temps$H8
-df$H11 = temps$H11
-df$H15 = temps$H15
-df$H19 = temps$H19
-
+df = data.frame(read.table( paste0(Data_loc,"/Data_ROMS_mean.csv"),header=TRUE, sep=','))
+# temps = data.frame(read.table( paste0(Data_loc,"/Data_ROMS_sum.csv"),header=TRUE, sep=','))
+# # 
+# # # bring in summed degree days into main file ####
+# # # Replace temp means with sum degree days for some values.
+# df$H2 = temps$H2
+# df$H8 = temps$H8
+# df$H11 = temps$H11
+# df$H15 = temps$H15
+# df$H19 = temps$H19
 
 vnam=data.frame(matrix(c(
   "H2", "DDpre",
@@ -192,30 +200,22 @@ cn$cnam = vnam$nam[match(cn$cn,vnam$cn)]
 cnames = c('year',as.character(cn$cnam))
 colnames(df) <- cnames
 
-write.table(df,"Data_ROMS.for.analysis.mean.csv", col.names=TRUE, row.names=FALSE, sep=',')
+# some more adjustments
+# old file is 4-day average
+# new file is 1-day average
+# need to change divide new DD by 4 to match up with old file
 
-setwd(MainFile)
+# df$DDpre[ df$year>2010 ] = df$DDpre[ df$year>2010 ]/4
+# df$DDegg1[ df$year>2010 ] = df$DDegg1[ df$year>2010 ]/4
+# df$DDegg2[ df$year>2010 ] = df$DDegg2[ df$year>2010 ]/4
+# df$DDlarv[ df$year>2010 ] = df$DDlarv[ df$year>2010 ]/4
+# df$DDpjuv[ df$year>2010 ] = df$DDpjuv[ df$year>2010 ]/4
 
+write.table(df,paste0(Data_loc,"/Data_ROMS.for.analysis.mean.csv"), col.names=TRUE, row.names=FALSE, sep=',')
 
+colnames(vnam) = c('roms1','var')
 
+x = full_join(Hyp_names, vnam)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+write.csv( x , "Variable_Names.csv" , row.names = FALSE)
 

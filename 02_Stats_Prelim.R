@@ -1,26 +1,28 @@
 MainFile = getwd()
+Data_loc = paste0(MainFile,'/00_Data/')
 StatsPrelim = paste0(paste0(MainFile,'/02_Stats_prelim'))
+Fig_loc = paste0(MainFile,'/Figures/')
 dir.create(StatsPrelim)
-setwd(StatsPrelim)
-
+# setwd(StatsPrelim)
+# setwd(MainFile)
 library(tidyverse)
 
 # load data ####
-roms = data.frame(read.table(paste0(MainFile,'/01_ROMS_prelim/Data_ROMS.for.analysis.mean.csv'), header=TRUE, sep=','))
+roms = data.frame(read.table(paste0(Data_loc,'/Data_ROMS.for.analysis.mean.csv'), header=TRUE, sep=','))
 head(roms)
 
-
-###### plot ROMS variables showing break in 2010 to visually evaluate change in patterns
+##### plot ROMS variables showing break in 2010 to visually evaluate change in patterns
 
 # conver to long for gg plot
 
-roms_long = roms %>% pivot_longer(., cols=DDpre:CSTbjuv.b,
-                                  names_to = "roms_param",
-                                  values_to = "roms_data") 
-
-
+roms_long = roms %>% 
+  pivot_longer(., cols=DDpre:CSTbjuv.b,
+               names_to = "roms_param",
+               values_to = "roms_data") %>%
+  mutate(Period = ifelse(year<2011,'before','after'))
+  
 graphics.off()
-png( paste0(MainFile,'/Figures/Timeseries_roms.png'), units = 'in',res=300, width=6.5, height=8)
+png( paste0(Fig_loc,'/Timeseries_roms.png'), units = 'in',res=300, width=6.5, height=8)
 
 ggplot(roms_long, aes(x=year, y = roms_data)) + 
   geom_line() + geom_point()+
@@ -31,25 +33,69 @@ ggplot(roms_long, aes(x=year, y = roms_data)) +
 dev.off()
 
 
+graphics.off()
+png( paste0(Fig_loc,'/Timeseries_roms_pre.png'), units = 'in',res=300, width=6.5, height=8)
+
+ggplot(roms_long %>% filter(year<2011), aes(x=year, y = roms_data)) + 
+  geom_line() + geom_point()+
+  facet_wrap(facets='roms_param', ncol=3, scales = 'free_y')+
+  xlab("") + ylab("Value")+
+  theme_bw()
+
+dev.off()
 
 
+graphics.off()
+png( paste0(Fig_loc,'/Timeseries_roms_post.png'), units = 'in',res=300, width=6.5, height=8)
+
+ggplot(roms_long %>% filter(year>2010), aes(x=year, y = roms_data)) + 
+  geom_line() + geom_point()+
+  facet_wrap(facets='roms_param', ncol=3, scales = 'free_y')+
+  xlab("") + ylab("Value")+
+  theme_bw()
+
+dev.off()
+
+# some summary tables
+
+sum_tab = roms_long %>% group_by(Period, roms_param) %>%
+  summarise(Mean = mean(roms_data, na.rm=TRUE), 
+            Var = var(roms_data, na.rm=TRUE),
+            SD = sd(roms_data, na.rm=TRUE))
+
+a = sum_tab[ sum_tab$Period=='after',]
+b = sum_tab[ sum_tab$Period=='before',]
+Sum_Table = cbind(a,b)
+Sum_Table
+
+write.csv(Sum_Table, "Summary_stats_table.csv", row.names = FALSE)
+
+graphics.off()
+png( paste0( Fig_loc,'/Summary_stats_tseries.png'), units='in', res=300, width=5, height=4)
+ggplot(sum_tab, aes(x=roms_param , y=Mean, color=Period)) + 
+  geom_point() + geom_errorbar( aes(x=roms_param, ymin = Mean-SD, ymax=Mean+SD) ) +
+  theme_bw(  ) +
+  theme(axis.text.x=element_text(angle = 90, hjust = 0))
+dev.off()
+
+graphics.off()
+png( paste0(Fig_loc,'/Summary_stats_tseries_temp.png'), units='in', res=300, width=5, height=4)
+ggplot(sum_tab %>% filter(Mean>1), aes(x=roms_param , y=Mean, color=Period)) + 
+  geom_point() + geom_errorbar( aes(x=roms_param, ymin = Mean-SD, ymax=Mean+SD) ) +
+  theme_bw(  ) +
+  theme(axis.text.x=element_text(angle = 90, hjust = 0))
+dev.off()
+
+graphics.off()
+png( paste0(Fig_loc,'/Summary_stats_tseries-other.png'), units='in', res=300, width=5, height=4)
+ggplot(sum_tab %>% filter(Mean<1), aes(x=roms_param , y=Mean, color=Period)) + 
+  geom_point() + geom_errorbar( aes(x=roms_param, ymin = Mean-SD, ymax=Mean+SD) ) +
+  theme_bw(  ) +
+  theme(axis.text.x=element_text(angle = 90, hjust = 0))
+dev.off()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#### begin fish stuff #####################################################
 
 #### big table of correlations ####
 df2 = roms[roms$year %in% 1981:2022,]
@@ -60,90 +106,47 @@ write.csv(cor1,"R_corr.among.roms.csv")
 
 # BRING IN PETRALE DATA AND SELECT YEARS ####
 
-fish1 = data.frame(read.table(paste0(main,"/00_Data/petrale.data.csv"),header=TRUE, sep=','))
-fish = fish1[fish1$year>1980,]
+fish1 = data.frame(read.table(paste0(Data_loc,"/Petrale Sole recruitment deviations 2019.csv"),
+                              header=TRUE, sep=','))
+fish = fish1[fish1$Year>1980,]
 
-#Quick regressions between recrutiment residuals and each predictor ####
-for(k in 2:ncol(roms)){
-  print(k)
-  Y = fish$resids # recruits per spawner
-  X = roms[match(fish$year,roms$year),k]
- # run quick regressions 
-  mod = lm(fish$resids ~ X)
-  r2 = summary(mod)$r.squared
-  b0 = summary(mod)$coefficients[1,1]
-  b0.e = summary(mod)$coefficients[1,2]
-  b0.t = summary(mod)$coefficients[1,3]
-  b0.p = summary(mod)$coefficients[1,4]
-  b1 = summary(mod)$coefficients[2,1]
-  b1.e = summary(mod)$coefficients[2,2]
-  b1.t = summary(mod)$coefficients[2,3]
-  b1.p = summary(mod)$coefficients[2,4]
-  aic = AIC(mod)
-  colnames(roms)[k]
-  Z = data.frame(cbind(colnames(roms)[k], r2,aic,b0, b0.e, b0.t, b0.p,b1, b1.e, b1.t, b1.p))
-  colnames(Z)[1]<-"roms.var"
-  # combine
-  if(k==2){results1 = Z}else{results1 = rbind(results1,Z)}
-          
-  # plot quick figures 
-  graphics.off()
-  pdf(paste0(colnames(roms)[k],".pdf"),height=4, width=4)
-  plot(X,Y, xlab=colnames(roms)[k], ylab="Recruitment rsiduals")
-  text(par()$usr[1], par()$usr[3]+ 0.9*(par()$usr[4]-par()$usr[3]), paste("r^2 =",round(r2,3)), pos=4)
-  text(par()$usr[1], par()$usr[3]+ 0.8*(par()$usr[4]-par()$usr[3]), paste("p =",round(b1.p,3)), pos=4)
-  dev.off()
-  }
-write.csv(results1,"R_Univeriate.Regressions.csv")
+fish = fish %>% 
+  rename( year = Year, recdev = Value, SD = Parm_StDev ) %>%
+  select(year, recdev, SD)
+
+fish = left_join(roms,fish)
+view(fish)
+fish$period = ifelse(fish$year <2011 , 'before','after')
+write.csv( fish, paste0( Data_loc, "/Peteral-ROMS-data.csv"), row.names = FALSE)
+
+# quick model check 
+
+m1 = lm( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a , data=fish)
+anova(m1)
+summary(m1)
+
+m2 = lm( recdev ~ DDpre*period + MLDegg*period + CSTlarv*period + CSTbjuv.a:period , data=fish)
+anova(m2)
+summary(m2)
+
+p2 = predict(m2, se.fit = TRUE)
+p3 = data.frame(year = 1981:2018, fit = p2$fit, se = p2$se.fit)
+
+fish = left_join(fish, p3)
 
 
-
-# RUN quick POLYNOMIAL regressions between petrale age.0 and each predictor ####
-
-#Quick regressions between sablefish age.0 and each predictor ####
-for(k in 2:ncol(roms)){
-  print(k)
-  Y = fish$resids # recruits per spawner
-  X = roms[match(fish$year,roms$year),k]
-  # run quick regressions 
-  mod = lm(fish$resids ~ X + I(X^2))
-  mod1  = lm(fish$resids ~ X)
-  r2 = summary(mod)$r.squared
-  b0 = summary(mod)$coefficients[1,1]
-  b0.e = summary(mod)$coefficients[1,2]
-  b0.t = summary(mod)$coefficients[1,3]
-  b0.p = summary(mod)$coefficients[1,4]
-  b1 = summary(mod)$coefficients[2,1]
-  b1.e = summary(mod)$coefficients[2,2]
-  b1.t = summary(mod)$coefficients[2,3]
-  b1.p = summary(mod)$coefficients[2,4]
-  aicq = AIC(mod)
-  colnames(roms)[k]
-  Z = data.frame(cbind(colnames(roms)[k], r2,aicq,b0, b0.e, b0.t, b0.p,b1, b1.e, b1.t, b1.p))
-  colnames(Z)[1]<-"roms.var"
-  # combine
-  if(k==2){results2 = Z}else{results2 = rbind(results2,Z)}
-  
-  # plot quick figures 
-  graphics.off()
-  pdf(paste0(colnames(roms)[k],"poly.pdf"),height=4, width=4)
-  plot(X,Y, xlab=colnames(roms)[k], ylab="Recruitment rsiduals")
-  text(par()$usr[1], par()$usr[3]+ 0.9*(par()$usr[4]-par()$usr[3]), paste("r^2 =",round(r2,3)), pos=4)
-  text(par()$usr[1], par()$usr[3]+ 0.8*(par()$usr[4]-par()$usr[3]), paste("p =",round(b1.p,3)), pos=4)
-  dev.off()
-}
-write.csv(results2,"R_Polynomial.Regressions.csv")
-
-RESULTS = results1[,c('roms.var','r2', 'aic')]
-results.poly = results2[,c('roms.var','r2', 'aicq')] 
-colnames(results.poly)[2] <- 'r2.q'
-RESULTS = merge(RESULTS,results.poly, by="roms.var")
-RESULTS$r2 = as.numeric(as.character(RESULTS$r2))
-RESULTS$r2.q = as.numeric(as.character(RESULTS$r2.q))
-RESULTS$dif = RESULTS$r2 - RESULTS$r2.q
-RESULTS$dAIC = as.numeric(as.character(RESULTS$aic)) - as.numeric(as.character(RESULTS$aicq))
-RESULTS
-write.csv(RESULTS, 'R_R2.comparison.csv')
+ggplot( fish, aes(x=year, y=recdev)) +
+  geom_point() + 
+  geom_line( data=fish, aes(x = year, y = fit) ) + 
+  geom_ribbon(aes(ymin=fit-se, ymax=fit+se), alpha=0.05, color='lightgrey' ) +
+  xlab("") + ylab('Recruitment deviations') +
+  theme_bw()
 
 
-setwd(MainFile)
+
+
+
+
+
+
+
