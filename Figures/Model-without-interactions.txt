@@ -1,0 +1,23 @@
+
+Call:
+lm(formula = recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a, data = fish)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-0.50282 -0.19027 -0.04819  0.24789  0.63316 
+
+Coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  -1.51412    0.57950  -2.613 0.013418 *  
+DDpre         0.03814    0.04695   0.812 0.422397    
+MLDegg        0.03723    0.01030   3.616 0.000985 ***
+CSTlarv     -17.05211    8.74566  -1.950 0.059742 .  
+CSTbjuv.a   -12.49783   11.41709  -1.095 0.281591    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.3035 on 33 degrees of freedom
+  (5 observations deleted due to missingness)
+Multiple R-squared:  0.3274,	Adjusted R-squared:  0.2459 
+F-statistic: 4.017 on 4 and 33 DF,  p-value: 0.009202
+

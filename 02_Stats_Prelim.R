@@ -117,7 +117,7 @@ fish = fish %>%
 fish = left_join(roms,fish)
 view(fish)
 fish$period = ifelse(fish$year <2011 , 'before','after')
-write.csv( fish, paste0( Data_loc, "/Peteral-ROMS-data.csv"), row.names = FALSE)
+
 
 # quick model check 
 
@@ -129,22 +129,35 @@ m2 = lm( recdev ~ DDpre*period + MLDegg*period + CSTlarv*period + CSTbjuv.a:peri
 anova(m2)
 summary(m2)
 
-p2 = predict(m2, se.fit = TRUE)
-p3 = data.frame(year = 1981:2018, fit = p2$fit, se = p2$se.fit)
+capture.output( summary(m1), file = paste0(Fig_loc,"Model-without-interactions.txt"))
+capture.output( summary(m2), file = paste0(Fig_loc,"Model-with-interactions.txt"))
+
+AIC(m1)
+AIC(m2)
+
+p2 = predict(m2, se.fit = TRUE, newdata = fish)
+p3 = data.frame(year = fish$year, fit = p2$fit, se = p2$se.fit)
 
 fish = left_join(fish, p3)
 
+write.csv( fish, paste0( Data_loc, "/Peteral-ROMS-data-w-predicted-recdev.csv"), row.names = FALSE)
+
+graphics.off()
+png( paste0(Fig_loc,"Predicted_time-series.png") , units = 'in', res=300, width=3.5, height = 2)
 
 ggplot( fish, aes(x=year, y=recdev)) +
   geom_point() + 
   geom_line( data=fish, aes(x = year, y = fit) ) + 
   geom_ribbon(aes(ymin=fit-se, ymax=fit+se), alpha=0.05, color='lightgrey' ) +
   xlab("") + ylab('Recruitment deviations') +
+  scale_x_continuous( breaks=seq(1980,2020,5) , minor_breaks = 1980:2022) +
+  geom_segment( aes(x=2010.5, xend=2010.5, y = -1, yend=1) , color='red' , linetype='dotted') +
   theme_bw()
 
+dev.off()
 
 
-
+plot(m2)
 
 
 
