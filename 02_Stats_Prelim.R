@@ -1,10 +1,10 @@
+# preliminaries
+rm(list=ls())
 MainFile = getwd()
 Data_loc = paste0(MainFile,'/00_Data/')
 StatsPrelim = paste0(paste0(MainFile,'/02_Stats_prelim'))
 Fig_loc = paste0(MainFile,'/Figures/')
 dir.create(StatsPrelim)
-# setwd(StatsPrelim)
-# setwd(MainFile)
 library(tidyverse)
 
 # load data ####
@@ -115,51 +115,105 @@ fish = fish %>%
   select(year, recdev, SD)
 
 fish = left_join(roms,fish)
-view(fish)
 fish$period = ifelse(fish$year <2011 , 'before','after')
+fish$period = as.factor(fish$period)
 
 
-# quick model check 
+# FIXED EFFECTS MODELS
+# exclude 2011 from analysis because of weird over winter calculations
 
-m1 = lm( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a , data=fish)
+m1 = lm( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a , 
+         data=fish %>% filter(year !=2011))
 anova(m1)
 summary(m1)
 
-m2 = lm( recdev ~ DDpre*period + MLDegg*period + CSTlarv*period + CSTbjuv.a:period , data=fish)
+m2 = lm( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a + period , 
+         data=fish %>% filter(year !=2011))
 anova(m2)
 summary(m2)
 
-capture.output( summary(m1), file = paste0(Fig_loc,"Model-without-interactions.txt"))
-capture.output( summary(m2), file = paste0(Fig_loc,"Model-with-interactions.txt"))
+
+m3 = lm( recdev ~ DDpre*period + MLDegg*period + CSTlarv*period + CSTbjuv.a*period , 
+         data=fish %>% filter(year !=2011))
+anova(m3)
+summary(m3)
+
+m4 = lm( recdev ~ DDpre*period + MLDegg*period + CSTlarv + CSTbjuv.a , 
+         data=fish %>% filter(year !=2011))
+anova(m4)
+summary(m4)
+
+capture.output( summary(m1), file = paste0(Fig_loc,"Model-noPeriod.txt"))
+capture.output( summary(m1), file = paste0(Fig_loc,"Model-Period.txt"))
+capture.output( summary(m3), file = paste0(Fig_loc,"Model-with-interactions.txt"))
+capture.output( summary(m4), file = paste0(Fig_loc,"Model-with-interactions-backfit.txt"))
 
 AIC(m1)
 AIC(m2)
+AIC(m3)
+AIC(m4)
 
-p2 = predict(m2, se.fit = TRUE, newdata = fish)
-p3 = data.frame(year = fish$year, fit = p2$fit, se = p2$se.fit)
+pred = predict(m4, se.fit = TRUE, newdata = fish)
+pred_fixed = data.frame(year = fish$year, fit = pred$fit, se = pred$se.fit)
 
-fish = left_join(fish, p3)
+fish = left_join(fish, pred_fixed)
 
 write.csv( fish, paste0( Data_loc, "/Peteral-ROMS-data-w-predicted-recdev.csv"), row.names = FALSE)
 
 graphics.off()
-png( paste0(Fig_loc,"Predicted_time-series.png") , units = 'in', res=300, width=3.5, height = 2)
+png( paste0(Fig_loc,"Predicted_time-series-fixed-effects.png") , units = 'in', res=300, width=3.5, height = 2)
 
 ggplot( fish, aes(x=year, y=recdev)) +
   geom_point() + 
-  geom_line( data=fish, aes(x = year, y = fit) ) + 
-  geom_ribbon(aes(ymin=fit-se, ymax=fit+se), alpha=0.05, color='lightgrey' ) +
+  geom_line( data=fish %>% filter(year!=2011), aes(x = year, y = fit) ) + 
+  geom_ribbon(data=fish %>% filter(year!=2011), aes(ymin=fit-se, ymax=fit+se), alpha=0.05, color='lightgrey' ) +
   xlab("") + ylab('Recruitment deviations') +
   scale_x_continuous( breaks=seq(1980,2020,5) , minor_breaks = 1980:2022) +
   geom_segment( aes(x=2010.5, xend=2010.5, y = -1, yend=1) , color='red' , linetype='dotted') +
+  geom_segment( aes(x=1980, xend=2022,y=0,yend=0), linetype='dashed') +
   theme_bw()
 
 dev.off()
 
+# RANDOM EFFECTS MODELS
 
-plot(m2)
+library(nlme)
+
+me1 = lme( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a ,
+            random = ~1|period, 
+            data=fish %>% filter(year !=2011, !is.na(recdev)))
+anova(me1)
+summary(me1)
 
 
+vf_p = varIdent(form=~1|period)
+me2 = lme( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a ,
+           random = ~1|period, 
+           weights = vf_p,
+           data=fish %>% filter(year !=2011, !is.na(recdev)))
+AIC(me1)
+AIC(me2)
 
+pred_mixed = data.frame(
+  year = 1981:2022,
+  fit_mixed = predict(me2, se.fit = TRUE, newdata = fish %>% filter(year %in% 1981:2022))
+)
 
+fish = left_join(fish,pred_mixed)
 
+graphics.off()
+png( paste0(Fig_loc,"Predicted_time-series-mixed.png") , units = 'in', res=300, width=3.5, height = 2)
+
+ggplot( fish, aes(x=year, y=recdev)) +
+  geom_point() + 
+  geom_line( data=fish %>% filter(year!=2011), aes(x = year, y = fit_mixed) ) + 
+  # geom_ribbon(aes(ymin=fit-se, ymax=fit+se), alpha=0.05, color='lightgrey' ) +
+  xlab("") + ylab('Recruitment deviations') +
+  scale_x_continuous( breaks=seq(1980,2020,5) , minor_breaks = 1980:2022) +
+  geom_segment( aes(x=2010.5, xend=2010.5, y = -1, yend=1) , color='red' , linetype='dotted') +
+  geom_segment( aes(x=1980, xend=2022,y=0,yend=0), linetype='dashed') +
+  theme_bw()
+
+dev.off()
+
+write.csv( fish, paste0( Data_loc, "/Peteral-ROMS-data-w-predicted-recdev.csv"), row.names = FALSE)

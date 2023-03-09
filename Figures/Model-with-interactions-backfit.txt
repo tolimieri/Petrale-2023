@@ -1,0 +1,27 @@
+
+Call:
+lm(formula = recdev ~ DDpre * period + MLDegg * period + CSTlarv + 
+    CSTbjuv.a, data = fish %>% filter(year != 2011))
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-0.38494 -0.10674 -0.01433  0.14659  0.33262 
+
+Coefficients:
+                     Estimate Std. Error t value Pr(>|t|)    
+(Intercept)           5.41328    2.30112   2.352 0.025649 *  
+DDpre                -0.37876    0.20708  -1.829 0.077698 .  
+periodbefore         -9.12188    2.35768  -3.869 0.000570 ***
+MLDegg               -0.07467    0.02370  -3.150 0.003766 ** 
+CSTlarv             -38.38860    6.90583  -5.559 5.37e-06 ***
+CSTbjuv.a           -44.57600   11.97244  -3.723 0.000844 ***
+DDpre:periodbefore    0.90402    0.24343   3.714 0.000865 ***
+periodbefore:MLDegg   0.11769    0.02481   4.744 5.17e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.2072 on 29 degrees of freedom
+  (5 observations deleted due to missingness)
+Multiple R-squared:  0.7244,	Adjusted R-squared:  0.6579 
+F-statistic: 10.89 on 7 and 29 DF,  p-value: 1.162e-06
+
