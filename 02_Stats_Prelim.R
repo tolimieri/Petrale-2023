@@ -5,7 +5,9 @@ Data_loc = paste0(MainFile,'/00_Data/')
 StatsPrelim = paste0(paste0(MainFile,'/02_Stats_prelim'))
 Fig_loc = paste0(MainFile,'/Figures/')
 dir.create(StatsPrelim)
+
 library(tidyverse)
+library(nlme)
 
 # load data ####
 roms = data.frame(read.table(paste0(Data_loc,'/Data_ROMS.for.analysis.mean.csv'), header=TRUE, sep=','))
@@ -143,6 +145,13 @@ m4 = lm( recdev ~ DDpre*period + MLDegg*period + CSTlarv + CSTbjuv.a ,
 anova(m4)
 summary(m4)
 
+vf_p = varIdent(form=~1|period)
+m5 = gls( recdev ~ DDpre*period + MLDegg*period + CSTlarv*period + CSTbjuv.a*period,
+          weights = vf_p,
+          data=fish %>% filter(year !=2011, !is.na(recdev)))
+anova(m5)
+summary(m5)
+
 capture.output( summary(m1), file = paste0(Fig_loc,"Model-noPeriod.txt"))
 capture.output( summary(m1), file = paste0(Fig_loc,"Model-Period.txt"))
 capture.output( summary(m3), file = paste0(Fig_loc,"Model-with-interactions.txt"))
@@ -152,11 +161,18 @@ AIC(m1)
 AIC(m2)
 AIC(m3)
 AIC(m4)
+AIC(m5)
 
-pred = predict(m4, se.fit = TRUE, newdata = fish)
-pred_fixed = data.frame(year = fish$year, fit = pred$fit, se = pred$se.fit)
-
+pred = predict(m4, se.fit = TRUE, newdata = fish %>% filter( year > 1980))
+pred_fixed = data.frame(year = 1981:2022, fit = pred$fit, se = pred$se.fit)
 fish = left_join(fish, pred_fixed)
+
+pred_fixed = data.frame(
+  year = 1981:2022,
+  fit_fixed = predict(m5, se.fit = TRUE, newdata = fish %>% filter(year %in% 1981:2022))
+)
+
+
 
 write.csv( fish, paste0( Data_loc, "/Peteral-ROMS-data-w-predicted-recdev.csv"), row.names = FALSE)
 
@@ -177,7 +193,6 @@ dev.off()
 
 # RANDOM EFFECTS MODELS
 
-library(nlme)
 
 me1 = lme( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a ,
             random = ~1|period, 
