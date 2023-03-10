@@ -156,6 +156,7 @@ capture.output( summary(m1), file = paste0(Fig_loc,"Model-noPeriod.txt"))
 capture.output( summary(m1), file = paste0(Fig_loc,"Model-Period.txt"))
 capture.output( summary(m3), file = paste0(Fig_loc,"Model-with-interactions.txt"))
 capture.output( summary(m4), file = paste0(Fig_loc,"Model-with-interactions-backfit.txt"))
+capture.output( summary(m5), file = paste0(Fig_loc,"Model-with-interactions-backfit-PeriodVar.txt"))
 
 AIC(m1)
 AIC(m2)
@@ -171,7 +172,7 @@ pred_fixed = data.frame(
   year = 1981:2022,
   fit_fixed = predict(m5, se.fit = TRUE, newdata = fish %>% filter(year %in% 1981:2022))
 )
-
+fish = left_join(fish, pred_fixed)
 
 
 write.csv( fish, paste0( Data_loc, "/Peteral-ROMS-data-w-predicted-recdev.csv"), row.names = FALSE)
@@ -191,7 +192,7 @@ ggplot( fish, aes(x=year, y=recdev)) +
 
 dev.off()
 
-# RANDOM EFFECTS MODELS
+# RANDOM EFFECTS MODELS - don't work well.
 
 
 me1 = lme( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a ,
@@ -199,7 +200,6 @@ me1 = lme( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a ,
             data=fish %>% filter(year !=2011, !is.na(recdev)))
 anova(me1)
 summary(me1)
-
 
 vf_p = varIdent(form=~1|period)
 me2 = lme( recdev ~ DDpre + MLDegg + CSTlarv + CSTbjuv.a ,

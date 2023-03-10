@@ -12,17 +12,39 @@ dir.create(ROMSPrelim)
 #1980-2010
 ROMS1 = data.frame(read.table(paste0(Data_loc,'/ROMS_vars_petrale.csv'),sep=',',header=TRUE))
 #2011-2022
-ROMS2 = data.frame(read.table(paste0(Data_loc,'/petrale_roms_variables_20221025.csv'),sep=',',header=TRUE))
+ROMSx = data.frame(read.table(paste0(Data_loc,'/petrale_roms_variables_20221025.csv'),sep=',',header=TRUE))
 
-dim(ROMS1)
-dim(ROMS2)
+ROMS2 = ROMSx
 
-colnames(ROMS1)
-colnames(ROMS2)
+ROMSx$d = 1:4
+ROMSx$d2 = NA
+for(i in 1:nrow(ROMS2)){
+  ROMSx$d2[i] = ifelse( ROMSx$d[i] == 4, ROMSx$day[i],
+                        ifelse( ROMSx$d[i] == 3, ROMSx$day[i+1],
+                        ifelse( ROMSx$d[i] == 2, ROMSx$day[i+2],ROMSx$day[i+3])))
+}
 
+
+# 4 day average instead for 2011-2022
+ROMS4 = ROMSx %>% dplyr::select(!hours_since_20110102) %>% 
+  pivot_longer(., cols = temp_bottom_40_47N_50_200m:ucross_bottom_40_47N_150_500m) %>% 
+  group_by(year, month, d2, name) %>% 
+  summarise( mn = mean(value)) %>%
+  pivot_wider(., names_from = name,
+                 values_from = mn) %>%
+  rename(Year = year, Month = month, Day = d2)
+  
 # combined data files and prepare #################################
 ROMS2 = ROMS2 %>% dplyr::select(!hours_since_20110102) %>% 
   rename(Year = year, Month = month, Day = day)
+
+#replace roms2 with roms 4
+
+################### Replace roms2 with roms4? #############################
+Four_Day = '1day' # '4day' or '1day'
+if(Four_Day == '4day'){ROMS2 <- ROMS4}else{ROMS2 = ROMS2}
+
+###########################################################################
 
 # match up column names to correct hypotheses
 
@@ -39,14 +61,14 @@ Hyp_names = data.frame(array(
   "mld_40_47N_250_500m",             "H5", 
   
   "ualong_50_200m_40_47N_250_500m",  "H6",
-  "ualong_200_500m_40_47N_250_500m", "H10",
+  "ualong_200_500m_40_47N_250_500m", "H9",
   "ualong_0_50m_40_47N_50_150km",    "H13",
   "ualong_0_150m_40_47N_80_120km",   "H17",
   "ualong_bottom_40_47N_50_150m",    "H20a",
   "ualong_bottom_40_47N_150_500m",   "H20b",
   
   "ucross_50_200m_40_47N_250_500m",  "H7",
-  "ucross_200_500m_40_47N_250_500m", "H9",
+  "ucross_200_500m_40_47N_250_500m", "H10",
   "ucross_0_50m_40_47N_50_150km"  ,  "H14",
   "ucross_0_150m_40_47N_80_120km",   "H18",
   "ucross_bottom_40_47N_50_150m",    "H21a",
@@ -68,8 +90,50 @@ colnames(ROMS2) <- cnames$roms2_hyp
 # join
 ROMS = full_join(ROMS1,ROMS2) 
 
-write.csv( ROMS, paste0(Data_loc,"/RAW_ROMS_Data_combined_1980-2022.csv"), 
+write.csv( ROMS, paste0(Data_loc,"/RAW_ROMS_Data_combined_",Four_Day,"_1980-2022.csv"), 
            row.names = FALSE)
+
+########## preliminary examination of time series ########
+
+ROMSlong = pivot_longer(ROMS, cols = H2:H21b) 
+
+vnam=data.frame(matrix(c(
+  "H2", "DDpre",
+  "H3", "Tpre.a",
+  "H4", "Tpre.b",
+  "H5", "MLDegg",
+  "H6", "LSTegg",
+  "H7", "CSTegg1",
+  "H8", "DDegg1",
+  "H9", "CSTegg2",
+  "H10", "LSTegg2",
+  "H11", "DDegg2",
+  "H12", NA,
+  "H13", "LSTlarv",
+  "H14", "CSTlarv",
+  "H15", "DDlarv",
+  "H16", NA,
+  "H17", "LSTpjuv",
+  "H18", "CSTpjuv",
+  "H19", "DDpjuv",
+  "H20a", "LSTbjuv.a",
+  "H21a", "CSTbjuv.a",
+  "H20b","LSTbjuv.b",
+  "H21b","CSTbjuv.b"), byrow = TRUE, ncol=2))
+colnames(vnam) =c('cn','nam')
+# correct month and make a date column
+ROMSlong$roms = vnam$nam[ match(ROMSlong$name, vnam$cn)]
+ROMSlong$Month = ifelse(nchar(ROMSlong$Month)==1, paste0('0',ROMSlong$Month), ROMSlong$Month)
+ROMSlong$date = as.POSIXct( paste(ROMSlong$Year,ROMSlong$Month,ROMSlong$Day, sep='-'))
+
+graphics.off()
+png( paste0(Fig_loc, "Raw-time-series_",Four_Day,".png"), units='in', res=300, width = 9, height= 9)
+ggplot(ROMSlong, aes(x=date, y=value)) + 
+  geom_line(  ) + xlab("") + ylab("") + 
+  facet_wrap( facets = 'roms', ncol=3, scales = 'free_y') +
+  theme_bw()
+dev.off()
+
 
 ############ Begin processesing data ##########################################
 # make new var for winter values that cross years
@@ -79,9 +143,9 @@ head(ROMS)
 #### calcuate periods specific values for each variable ####
 fun = c('sum','mean','sd','max','min','median')
 for(i in 1:length(fun)){
-     print(i)
-     roms <- ROMS  # reset dd calculations
-     roms_2 = data.frame(1980:2022)
+     print(fun[i])
+     roms <- ROMS  # reset dd calculations because converted to DD below
+     roms_2 = data.frame(1980:2022) # file to add stuff to
      colnames(roms_2)<-'year'
      # H2: Degree days preconditioning # need to set temp reference ####
      temp.ref = 3.5
@@ -152,70 +216,21 @@ for(i in 1:length(fun)){
      H21b = aggregate(H21b ~ y2, data=roms[roms$Month %in% c(4:10),], FUN=fun[i])        
      roms_2$H21b = H21b[match(roms_2$year, H21b$y2),2]
 
-     write.table(roms_2, paste0(Data_loc,'/Data_ROMS_',fun[i],'.csv'), sep=',', 
+     write.table(roms_2, paste0(Data_loc,'/Data_ROMS_',Four_Day,"_", fun[i],'.csv'), sep=',', 
                  col.names = TRUE, row.names = FALSE)
 
 } # end i ####
 #### analysis using means for tranport mech ####
-df = data.frame(read.table( paste0(Data_loc,"/Data_ROMS_mean.csv"),header=TRUE, sep=','))
-# temps = data.frame(read.table( paste0(Data_loc,"/Data_ROMS_sum.csv"),header=TRUE, sep=','))
-# # 
-# # # bring in summed degree days into main file ####
-# # # Replace temp means with sum degree days for some values.
-# df$H2 = temps$H2
-# df$H8 = temps$H8
-# df$H11 = temps$H11
-# df$H15 = temps$H15
-# df$H19 = temps$H19
-
-vnam=data.frame(matrix(c(
-  "H2", "DDpre",
-  "H3", "Tpre.a",
-  "H4", "Tpre.b",
-  "H5", "MLDegg",
-  "H6", "LSTegg",
-  "H7", "CSTegg1",
-  "H8", "DDegg1",
-  "H9", "CSTegg2",
-  "H10", "LSTegg2",
-  "H11", "DDegg2",
-  "H12", NA,
-  "H13", "LSTlarv",
-  "H14", "CSTlarv",
-  "H15", "DDlarv",
-  "H16", NA,
-  "H17", "LSTpjuv",
-  "H18", "CSTpjuv",
-  "H19", "DDpjuv",
-  "H20a", "LSTbjuv.a",
-  "H21a", "CSTbjuv.a",
-  "H20b","LSTbjuv.b",
-  "H21b","CSTbjuv.b"), byrow = TRUE, ncol=2)
-)
-colnames(vnam) =c('cn','nam')
-
+df = data.frame(read.table( paste0(Data_loc,"/Data_ROMS_",Four_Day,"_mean.csv"),header=TRUE, sep=','))
 cn = data.frame(colnames(df)[-1])
 colnames(cn) = "cn"
 cn$cnam = vnam$nam[match(cn$cn,vnam$cn)]
 cnames = c('year',as.character(cn$cnam))
 colnames(df) <- cnames
 
-# some more adjustments
-# old file is 4-day average
-# new file is 1-day average
-# need to change divide new DD by 4 to match up with old file
-
-# df$DDpre[ df$year>2010 ] = df$DDpre[ df$year>2010 ]/4
-# df$DDegg1[ df$year>2010 ] = df$DDegg1[ df$year>2010 ]/4
-# df$DDegg2[ df$year>2010 ] = df$DDegg2[ df$year>2010 ]/4
-# df$DDlarv[ df$year>2010 ] = df$DDlarv[ df$year>2010 ]/4
-# df$DDpjuv[ df$year>2010 ] = df$DDpjuv[ df$year>2010 ]/4
-
-write.table(df,paste0(Data_loc,"/Data_ROMS.for.analysis.mean.csv"), col.names=TRUE, row.names=FALSE, sep=',')
+write.table(df,paste0(Data_loc,"/Data_ROMS.for.analysis.",Four_Day,".mean.csv"), col.names=TRUE, row.names=FALSE, sep=',')
 
 colnames(vnam) = c('roms1','var')
-
 x = full_join(Hyp_names, vnam)
-
 write.csv( x , "Variable_Names.csv" , row.names = FALSE)
 

@@ -1,0 +1,44 @@
+Generalized least squares fit by REML
+  Model: recdev ~ DDpre * period + MLDegg * period + CSTlarv * period +      CSTbjuv.a * period 
+  Data: fish %>% filter(year != 2011, !is.na(recdev)) 
+        AIC      BIC   logLik
+  -2.551821 12.99822 13.27591
+
+Variance function:
+ Structure: Different standard deviations per stratum
+ Formula: ~1 | period 
+ Parameter estimates:
+  before    after 
+1.000000 1.557095 
+
+Coefficients:
+                           Value Std.Error    t-value p-value
+(Intercept)              3.96127   3.82412  1.0358634  0.3095
+DDpre                   -0.33325   0.35564 -0.9370509  0.3570
+periodbefore            -7.69984   3.86047 -1.9945324  0.0563
+MLDegg                  -0.03690   0.05004 -0.7372581  0.4673
+CSTlarv                  0.78276  51.03798  0.0153368  0.9879
+CSTbjuv.a              -17.89670  35.83163 -0.4994666  0.6215
+DDpre:periodbefore       0.89565   0.37073  2.4159013  0.0227
+periodbefore:MLDegg      0.07777   0.05096  1.5260902  0.1386
+periodbefore:CSTlarv   -41.57637  51.47322 -0.8077283  0.4263
+periodbefore:CSTbjuv.a -34.59785  38.10434 -0.9079767  0.3719
+
+ Correlation: 
+                       (Intr) DDpre  prdbfr MLDegg CSTlrv CSTbj. DDpr:p pr:MLD pr:CST
+DDpre                  -0.925                                                        
+periodbefore           -0.991  0.917                                                 
+MLDegg                 -0.588  0.250  0.583                                          
+CSTlarv                -0.061 -0.253  0.061  0.632                                   
+CSTbjuv.a              -0.537  0.466  0.532  0.536  0.172                            
+DDpre:periodbefore      0.888 -0.959 -0.905 -0.240  0.242 -0.447                     
+periodbefore:MLDegg     0.578 -0.246 -0.587 -0.982 -0.620 -0.527  0.224              
+periodbefore:CSTlarv    0.061  0.251 -0.052 -0.626 -0.992 -0.170 -0.254  0.608       
+periodbefore:CSTbjuv.a  0.505 -0.439 -0.504 -0.504 -0.161 -0.940  0.373  0.528  0.172
+
+Standardized residuals:
+        Min          Q1         Med          Q3         Max 
+-2.06041180 -0.46728433 -0.06225035  0.75410829  1.45045582 
+
+Residual standard error: 0.1953668 
+Degrees of freedom: 37 total; 27 residual
